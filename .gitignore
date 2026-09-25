@@ -1,0 +1,6 @@
+# 各機器自己的私人觸發關鍵字、本機修改日誌（含個人路徑）
+triggers.local.txt
+修改日誌.md
+__pycache__/
+*.pyc
+*.tmp*

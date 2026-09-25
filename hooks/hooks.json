@@ -1,0 +1,68 @@
+{
+  "SessionStart": [
+    {
+      "hooks": [
+        {
+          "type": "command",
+          "command": "python -B \"${CLAUDE_PLUGIN_ROOT}/hud.py\" compile-triggers >/dev/null 2>&1; exit 0",
+          "timeout": 10
+        }
+      ]
+    }
+  ],
+  "PreToolUse": [
+    {
+      "matcher": "mcp__claude-in-chrome__.*",
+      "hooks": [
+        {
+          "type": "command",
+          "command": "python -B \"${CLAUDE_PLUGIN_ROOT}/hud.py\" hook-pre",
+          "timeout": 10
+        }
+      ]
+    },
+    {
+      "matcher": "Bash|PowerShell",
+      "hooks": [
+        {
+          "type": "command",
+          "command": "i=$(cat); printf '%s' \"$i\" | grep -qiF -f \"$LOCALAPPDATA/ClaudeAutomationHUD/triggers.grep\" && printf '%s' \"$i\" | python -B \"${CLAUDE_PLUGIN_ROOT}/hud.py\" hook-pre; exit 0",
+          "timeout": 10
+        }
+      ]
+    }
+  ],
+  "UserPromptSubmit": [
+    {
+      "hooks": [
+        {
+          "type": "command",
+          "command": "python -B \"${CLAUDE_PLUGIN_ROOT}/hud.py\" hook-prompt",
+          "timeout": 10
+        }
+      ]
+    }
+  ],
+  "Stop": [
+    {
+      "hooks": [
+        {
+          "type": "command",
+          "command": "python -B \"${CLAUDE_PLUGIN_ROOT}/hud.py\" hook-stop",
+          "timeout": 10
+        }
+      ]
+    }
+  ],
+  "SessionEnd": [
+    {
+      "hooks": [
+        {
+          "type": "command",
+          "command": "python -B \"${CLAUDE_PLUGIN_ROOT}/hud.py\" hook-stop",
+          "timeout": 10
+        }
+      ]
+    }
+  ]
+}

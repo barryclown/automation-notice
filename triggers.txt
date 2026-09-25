@@ -1,0 +1,12 @@
+# 通用觸發關鍵字：Bash／PowerShell 指令文字裡出現這些字，提示層就會亮。
+# 每行一個字面關鍵字（不是正規表示式），不分大小寫；# 開頭是註解，空行會略過。
+# 自己私人的腳本名稱請寫在 triggers.local.txt（不會進 repo）。改完不用重裝，下一個回合結束時自動生效。
+SetForegroundWindow
+BringWindowToTop
+SendKeys
+SendInput
+keybd_event
+mouse_event
+pyautogui
+pynput
+nircmd

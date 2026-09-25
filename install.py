@@ -1,11 +1,11 @@
 # -*- coding: utf-8 -*-
-"""把 automation-hud 的 hook 接進 Claude Code（~/.claude/settings.json）。
+"""把 automation-notice 的 hook 接進 Claude Code（~/.claude/settings.json）。
 
 hook 會用「執行這支程式的那個 Python」，所以不用手改任何路徑：
 
     python install.py              安裝或更新（動 settings.json 之前自動備份）
     python install.py --dry-run    只印出會寫進去的 hook，不動檔案
-    python install.py --uninstall  拔掉 automation-hud 的 hook，其他 hook 不動
+    python install.py --uninstall  拔掉 automation-notice 的 hook，其他 hook 不動
 
 需求：Windows 10 2004 以上、帶 tkinter 的 Python 3.9+、Claude Code（hook 由 Git Bash 執行）。
 資料夾搬家後重跑一次就好，舊路徑的 hook 會被認出來換掉。
@@ -23,10 +23,10 @@ import time
 from pathlib import Path
 
 HERE = Path(__file__).resolve().parent
-HUD = HERE / "hud.py"
+HUD = HERE / "notice.py"
 # 認出「自己裝過的 hook」：指令裡有 hud.py 接著 hook-pre／hook-prompt／hook-stop。
 # 不綁完整路徑，這樣資料夾搬家後重裝也能把舊的清掉。
-OURS = re.compile(r"hud\.py'?\s+hook-(?:pre|prompt|stop)\b")
+OURS = re.compile(r"(?:hud|notice)\.py'?\s+hook-(?:pre|prompt|stop)\b")
 
 
 def sh_quote(path) -> str:
@@ -56,7 +56,7 @@ def build_hooks(python: str, grep_file: Path) -> dict:
 
 
 def strip_ours(hooks: dict) -> int:
-    """把舊的 automation-hud hook 拿掉（原地修改），回傳拿掉幾個。空掉的群組和事件一併收掉。"""
+    """把舊的 automation-notice hook 拿掉（原地修改），回傳拿掉幾個。空掉的群組和事件一併收掉。"""
     removed = 0
     for event in list(hooks):
         groups = []
@@ -93,7 +93,7 @@ def save_settings(path: Path, data: dict, newline: str, indent: int, trailing: b
     if newline != "\n":
         text = text.replace("\n", newline)
     path.parent.mkdir(parents=True, exist_ok=True)
-    tmp = path.with_name(path.name + ".tmp-automation-hud")
+    tmp = path.with_name(path.name + ".tmp-automation-notice")
     tmp.write_bytes(text.encode("utf-8"))
     json.loads(tmp.read_text(encoding="utf-8"))          # 寫出去的東西一定要讀得回來
     os.replace(tmp, path)
@@ -105,15 +105,15 @@ def main() -> int:
             stream.reconfigure(encoding="utf-8")
         except Exception:
             pass
-    ap = argparse.ArgumentParser(description="安裝／移除 automation-hud 的 Claude Code hook")
-    ap.add_argument("--uninstall", action="store_true", help="只拔掉 automation-hud 的 hook")
+    ap = argparse.ArgumentParser(description="安裝／移除 automation-notice 的 Claude Code hook")
+    ap.add_argument("--uninstall", action="store_true", help="只拔掉 automation-notice 的 hook")
     ap.add_argument("--dry-run", action="store_true", help="只印出結果，不寫檔")
     ap.add_argument("--settings", default=str(Path.home() / ".claude" / "settings.json"),
                     help="要改的 settings.json（預設 ~/.claude/settings.json）")
     args = ap.parse_args()
 
     if sys.platform != "win32":
-        print("automation-hud 目前只支援 Windows。")
+        print("automation-notice 目前只支援 Windows。")
         return 1
     if not args.uninstall:
         try:
@@ -131,7 +131,7 @@ def main() -> int:
     if not args.uninstall:
         sys.path.insert(0, str(HERE))
         sys.dont_write_bytecode = True                       # 別在工具資料夾留 __pycache__
-        import hud                                           # 借用同一套路徑與整理邏輯
+        import notice as hud                                 # 借用同一套路徑與整理邏輯
 
         local = HERE / "triggers.local.txt"
         if not local.exists() and not args.dry_run:
@@ -153,12 +153,12 @@ def main() -> int:
     if settings.exists():
         backup_dir = settings.parent / "backups"
         backup_dir.mkdir(parents=True, exist_ok=True)
-        backup = backup_dir / f"{settings.name}.before-automation-hud-{time.strftime('%Y%m%d-%H%M%S')}"
+        backup = backup_dir / f"{settings.name}.before-automation-notice-{time.strftime('%Y%m%d-%H%M%S')}"
         shutil.copy2(settings, backup)
         print(f"已備份：{backup}")
     save_settings(settings, data, newline, indent, trailing)
     if args.uninstall:
-        print(f"已移除 {removed} 個 automation-hud hook（其他 hook 沒動）。")
+        print(f"已移除 {removed} 個 automation-notice hook（其他 hook 沒動）。")
     else:
         print(f"已安裝：移除舊的 {removed} 個、寫入 {added} 個 hook，使用 {sys.executable}")
         print(f"觸發關鍵字：{', '.join(hud.load_triggers())}")

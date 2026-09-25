@@ -6,7 +6,7 @@
   },
   "plugins": [
     {
-      "name": "automation-hud",
+      "name": "automation-notice",
       "source": "./",
       "description": "See what Claude Code is doing on your machine, and stop it with one click. / 看得見 AI 在你電腦上做什麼，也停得掉。"
     }

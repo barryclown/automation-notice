@@ -1,4 +1,4 @@
-# automation-hud — see what Claude Code is doing on your machine
+# automation-notice — see what Claude Code is doing on your machine
 
 **English** | [繁體中文](README.zh-TW.md)
 
@@ -10,12 +10,12 @@ A thin frame around the screen edge, plus a panel:
 
 ```
 ● Claude is using your computer                  Ctrl+Alt+Q to take back control
-● NewGame         Clicking in Chrome at (640, 360)                01:24  ⏹
-● automation-hud  Opening example.com/jobs/1234                   00:18  ⏹
+● NewGame            Clicking in Chrome at (640, 360)             01:24
+● automation-notice  Opening example.com/jobs/1234                00:18
 ```
 
 One row per Claude Code session, each with its own colour, project name (the session's
-working directory), elapsed time, and stop button. One Claude running means one row.
+working directory) and elapsed time. One Claude running means one row.
 
 The action column says **what this step actually touches**, not the tool name: which
 coordinate or element was clicked, the exact text typed, the full URL opened, the value
@@ -31,12 +31,13 @@ and the hook prints nothing into the conversation.
 
 - **It stays out of your way.** Click-through, never takes focus, not in the taskbar or
   Alt+Tab. Clicking goes to whatever is underneath.
-- **Stopping.** The ⏹ on a row takes back control from that one session; `Ctrl+Alt+Q`
-  stops all of them. Both leave a **sticky stop latch**: until you say something yourself,
-  the PreToolUse hook **denies** every tool call from that session that would borrow your
-  keyboard, mouse or browser (returning `deny` with the time you stopped it and what it was
-  doing). The agent can only stop and report — it cannot decide to try again. Your next
-  message clears the latch automatically.
+- **Stopping is a keystroke, not a button.** `Ctrl+Alt+Q` takes back control. There is
+  deliberately nothing to click: a window that swallows clicks would eat the one that lands
+  on it mid-automation. Stopping leaves a **sticky latch** — until you say something
+  yourself, the PreToolUse hook **denies** every tool call that would borrow your keyboard,
+  mouse or browser (returning `deny` with the time you stopped it and what it was doing).
+  The agent can only stop and report; it cannot decide to try again. Your next message
+  clears the latch automatically.
 - **Push it off-screen if you don't want to see it.** Drag it past any edge and a small
   handle stays (`config --park right` does it in one line). `config --border off` turns off
   the screen-edge frame; `config --reset-pos` brings the panel back.
@@ -44,11 +45,9 @@ and the hook prints nothing into the conversation.
   agent's own screenshots aren't blocked by it, and a stream won't leak what the agent is
   typing. `config --capture show` makes it recordable.
 
-The stop button does not eat mouse clicks until **the pointer has rested on the panel for
-about 0.25s**. That is deliberate: during automation the pointer moves all over the screen,
-and a panel that always swallowed clicks would eat the one that happens to land on it,
-making automation fail for no visible reason. Automation moves and clicks immediately, so
-it never crosses that threshold; a human reaching for the button never notices it.
+The panel is click-through at all times. It only accepts the mouse while you **hold
+Ctrl+Alt**, so you can drag it somewhere else; let go and it goes back to passing clicks
+through. Nothing on it is clickable, by design.
 
 ## Install
 
@@ -58,8 +57,8 @@ includes it), and Claude Code.
 As a Claude Code plugin:
 
 ```
-/plugin marketplace add barryclown/automation-hud
-/plugin install automation-hud
+/plugin marketplace add barryclown/automation-notice
+/plugin install automation-notice
 ```
 
 Or wire it into your own `~/.claude/settings.json`:
@@ -102,13 +101,13 @@ the overlay disappears on its own within 180 seconds.
 ## Settings
 
 ```bash
-python hud.py config --opacity 0.5    # 0.2-1.0 (default 0.72)
-python hud.py config --lang en        # overlay language: auto (default, follows Windows) / zh / en
-python hud.py config --capture show   # let screen capture see it (default: hide)
-python hud.py config --border off     # turn off the screen-edge frame
-python hud.py config --park right     # push it off-screen: left / right / top / bottom
-python hud.py config --reset-pos      # bring it back to bottom centre
-python hud.py config --hook-ttl 300   # seconds allowed between two actions (default 180, min 30)
+python notice.py config --opacity 0.5    # 0.2-1.0 (default 0.72)
+python notice.py config --lang en        # overlay language: auto (default, follows Windows) / zh / en
+python notice.py config --capture show   # let screen capture see it (default: hide)
+python notice.py config --border off     # turn off the screen-edge frame
+python notice.py config --park right     # push it off-screen: left / right / top / bottom
+python notice.py config --reset-pos      # bring it back to bottom centre
+python notice.py config --hook-ttl 300   # seconds allowed between two actions (default 180, min 30)
 ```
 
 On screen: hold Ctrl+Alt to grab and drag the panel (it goes back to click-through when you
@@ -118,16 +117,16 @@ and apply live.
 ## Manual use
 
 ```bash
-python hud.py start --detail "Filling forms" --ttl 600
-python hud.py set   --detail "9 of 15"     # change the text without restarting
-python hud.py status                       # which sessions are up, and in what colour
-python hud.py check-abort                  # exit 3 if the user stopped it
-python hud.py clear-abort                  # clear the stop latch (hooks do this for you)
-python hud.py stop                         # turn everything off
-python selftest.py                         # headless self-test (descriptions / stop button / latch / colours)
+python notice.py start --detail "Filling forms" --ttl 600
+python notice.py set   --detail "9 of 15"     # change the text without restarting
+python notice.py status                       # which sessions are up, and in what colour
+python notice.py check-abort                  # exit 3 if the user stopped it
+python notice.py clear-abort                  # clear the stop latch (hooks do this for you)
+python notice.py stop                         # turn everything off
+python selftest.py                         # headless self-test (descriptions / layout / latch / colours)
 
 # want to know how a tool call will read on screen? feed it the payload
-echo '{"tool_name":"mcp__claude-in-chrome__computer","tool_input":{"action":"type","text":"hi"}}' | python hud.py describe
+echo '{"tool_name":"mcp__claude-in-chrome__computer","tool_input":{"action":"type","text":"hi"}}' | python notice.py describe
 ```
 
 ## Limitations
@@ -148,12 +147,12 @@ echo '{"tool_name":"mcp__claude-in-chrome__computer","tool_input":{"action":"typ
 
 ## Runtime files
 
-Under `%LOCALAPPDATA%\ClaudeAutomationHUD\`:
+Under `%LOCALAPPDATA%\ClaudeAutomationNotice\`:
 
 | File | Written by | Purpose |
 | --- | --- | --- |
-| `sessions/<session_id>.json` | CLI / hooks | what each session is doing (`manual.json` for `hud.py start`) |
-| `aborts/<session_id>.json` | overlay | sticky latch left by a stop button |
+| `sessions/<session_id>.json` | CLI / hooks | what each session is doing (`manual.json` for `notice.py start`) |
+| `aborts/<session_id>.json` | overlay | per-session sticky latch (used by the CLI) |
 | `abort.json` | overlay | the global Ctrl+Alt+Q latch |
 | `heartbeat.json` | overlay | pid + timestamp, used to tell whether it is alive |
 | `config.json` | CLI | your settings |
@@ -200,7 +199,7 @@ Drop an empty file named `DEBUG` in that folder and the overlay writes its start
   `sweep_stale_tmp()` stay (it needs `rglob` to reach subdirectories).
 - **Use `CREATE_BREAKAWAY_FROM_JOB` for the long-lived process**, not WMI. The agent's shell
   lives in a KILL_ON_JOB_CLOSE job, so an ordinary child dies with that one tool call; WMI
-  created processes die silently on some machines without reaching the first line of hud.py
+  created processes die silently on some machines without reaching the first line of notice.py
   (observed — `boot.log` completely empty).
 
 ## Licence

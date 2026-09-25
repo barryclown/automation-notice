@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-"""automation-hud — 螢幕上的「Claude 自動化中」提示層。
+"""automation-notice（自動化提醒視窗）— 螢幕上的「Claude 自動化中」提示層。
 
 為什麼需要：AI 在操控使用者已登入的 Chrome／用前景鍵鼠腳本做事時，會把鍵盤與滑鼠
 焦點借走。以前只在對話裡打字提醒，使用者在別的視窗根本看不到。這支在螢幕上直接畫
@@ -16,17 +16,17 @@
     不會再亮第二次（他主動終止就是終止，不該被重試覆蓋）
 
 用法（CLI）：
-    python hud.py start  --detail "批次填寫表單" --ttl 600
-    python hud.py set    --detail "第 3/15 筆"
-    python hud.py status
-    python hud.py check-abort          # 使用者按過 Ctrl+Alt+Q 就 exit code 3
-    python hud.py clear-abort          # 解除終止 latch（平常交給 hook 自動做）
-    python hud.py describe             # 餵一份 hook payload，印出畫面上會顯示什麼
-    python hud.py config --opacity 0.5 # 調透明度（即時生效並記住）
-    python hud.py config --reset-pos   # 膠囊位置恢復底部置中
-    python hud.py config --capture show  # 讓截圖／錄影拍得到提示層（預設 hide＝拍不到）
-    python hud.py config --hook-ttl 300  # 兩個自動化動作之間最多隔幾秒還亮著（預設 180）
-    python hud.py stop
+    python notice.py start  --detail "批次填寫表單" --ttl 600
+    python notice.py set    --detail "第 3/15 筆"
+    python notice.py status
+    python notice.py check-abort          # 使用者按過 Ctrl+Alt+Q 就 exit code 3
+    python notice.py clear-abort          # 解除終止 latch（平常交給 hook 自動做）
+    python notice.py describe             # 餵一份 hook payload，印出畫面上會顯示什麼
+    python notice.py config --opacity 0.5 # 調透明度（即時生效並記住）
+    python notice.py config --reset-pos   # 膠囊位置恢復底部置中
+    python notice.py config --capture show  # 讓截圖／錄影拍得到提示層（預設 hide＝拍不到）
+    python notice.py config --hook-ttl 300  # 兩個自動化動作之間最多隔幾秒還亮著（預設 180）
+    python notice.py stop
 
 畫面上的手動操作：
     Ctrl+Alt+Q       立刻收回控制權
@@ -34,14 +34,14 @@
     Ctrl+Alt+- / =   當場調透明度；按住 Ctrl+Alt 時滾輪也可以
 
 用法（hook，由 install.py 寫進 ~/.claude/settings.json，讀 stdin 的 hook JSON）：
-    python hud.py hook-pre             # PreToolUse：判斷這個工具會不會借走鍵鼠 → 亮起
-    python hud.py hook-prompt          # UserPromptSubmit：使用者開口了 → 解除終止 latch
-    python hud.py hook-stop            # Stop / SessionEnd：熄掉
+    python notice.py hook-pre             # PreToolUse：判斷這個工具會不會借走鍵鼠 → 亮起
+    python notice.py hook-prompt          # UserPromptSubmit：使用者開口了 → 解除終止 latch
+    python notice.py hook-stop            # Stop / SessionEnd：熄掉
 
 內部：
-    python hud.py _overlay             # 實際畫面的常駐進程，不要手動叫
+    python notice.py _overlay             # 實際畫面的常駐進程，不要手動叫
 
-執行期檔案放 %LOCALAPPDATA%\\ClaudeAutomationHUD\\：
+執行期檔案放 %LOCALAPPDATA%\\ClaudeAutomationNotice\\：
     state.json      CLI 寫、overlay 讀（標題／說明／到期時間／stop／aborted）
     heartbeat.json  overlay 寫、CLI 讀（pid + 時間戳，用來判斷是不是還活著）
     abort.json      終止 latch，start/stop 都洗不掉，只有 clear-abort 會刪
@@ -63,9 +63,16 @@ from pathlib import Path
 
 # ---------------------------------------------------------------- 路徑與常數
 
-APP_DIR = Path(os.environ.get("LOCALAPPDATA") or Path.home()) / "ClaudeAutomationHUD"
+APP_DIR = Path(os.environ.get("LOCALAPPDATA") or Path.home()) / "ClaudeAutomationNotice"
+_OLD_APP_DIR = APP_DIR.with_name("ClaudeAutomationHUD")   # 舊名字（automation-hud 時代）
+if _OLD_APP_DIR.exists() and not APP_DIR.exists():
+    try:                                   # 改名而已，使用者調好的設定不用重設
+        os.replace(_OLD_APP_DIR, APP_DIR)
+    except OSError:
+        pass
+
 SESSIONS = APP_DIR / "sessions"  # 一個 Claude Code session 一個檔，才能同時顯示好幾條
-STATE = SESSIONS / "manual.json"  # 手動 CLI（hud.py start）用的那一條
+STATE = SESSIONS / "manual.json"  # 手動 CLI（notice.py start）用的那一條
 BEAT = APP_DIR / "heartbeat.json"
 ABORT = APP_DIR / "abort.json"   # 使用者主動收回控制權的 latch，只有他下一則訊息會解除
 ABORT_DIR = APP_DIR / "aborts"   # 單獨停掉某一條時的 latch（膠囊上的停止鈕）
@@ -154,9 +161,9 @@ def sweep_stale_tmp(max_age: float = 60.0) -> int:
 
 
 def trace(msg: str) -> None:
-    """設 HUD_DEBUG=1 就把 overlay 的開機階段寫進 boot.log（pythonw 沒 console，只能這樣看）。"""
+    """設 NOTICE_DEBUG=1 就把 overlay 的開機階段寫進 boot.log（pythonw 沒 console，只能這樣看）。"""
     # WMI 起的進程拿不到呼叫端的環境變數，所以另外吃一個旗標檔
-    if not (os.environ.get("HUD_DEBUG") or (APP_DIR / "DEBUG").exists()):
+    if not (os.environ.get("NOTICE_DEBUG") or (APP_DIR / "DEBUG").exists()):
         return
     try:
         APP_DIR.mkdir(parents=True, exist_ok=True)
@@ -293,7 +300,7 @@ def overlay_alive() -> bool:
 
 # 膠囊版面常數。抽到模組層是為了可測：停止鈕的位置與命中判定不必開 GUI 就能驗。
 PANEL_PAD_X, PANEL_PAD_Y = 18, 10
-PANEL_HEADER_H, PANEL_ROW_H, PANEL_STOP_W = 22, 24, 24
+PANEL_HEADER_H, PANEL_ROW_H = 22, 24
 # 不想看到它時可以把膠囊推出畫面外，但一定要留這麼寬的一截在畫面裡當把手，
 # 不然推出去就再也抓不回來了（真的想整條消失就 config --border off 再推出去，
 # 或者 config --reset-pos 把它叫回來）。
@@ -312,26 +319,11 @@ def row_center_y(i: int) -> int:
     return PANEL_PAD_Y + PANEL_HEADER_H + PANEL_ROW_H * i + 12
 
 
-def stop_rect(pw: int, i: int) -> tuple[int, int, int, int]:
-    """第 i 列停止鈕的 (x1, y1, x2, y2)，座標相對膠囊視窗左上角。"""
-    cy = row_center_y(i)
-    return (pw - PANEL_PAD_X - PANEL_STOP_W, cy - 9, pw - PANEL_PAD_X, cy + 9)
-
-
-def hit_stop(rows: list, x: int, y: int) -> str | None:
-    """點在哪一列的停止鈕上？沒中回 None（那就是要拖膠囊）。"""
-    for r in rows:
-        x1, y1, x2, y2 = r["stop"]
-        if x1 <= x <= x2 and y1 <= y <= y2:
-            return r["sid"]
-    return None
-
-
 # ---------------------------------------------------------------- 文案（中／英）
 # 介面文字與動作描述都走這張表。預設看 Windows 的顯示語言自動選，
-# `hud.py config --lang en|zh` 可以指定。
+# `notice.py config --lang en|zh` 可以指定。
 # UI strings and action descriptions all go through this table. The language
-# follows the Windows display language by default; `hud.py config --lang` overrides it.
+# follows the Windows display language by default; `notice.py config --lang` overrides it.
 
 STRINGS = {
     "zh": {
@@ -908,16 +900,15 @@ def run_overlay() -> None:
 
     # 版面：表頭一行（狀態＋熱鍵）＋ 每個 session 一行（顏色點／專案名／動作／計時／停止鈕）
     PAD_X, PAD_Y = PANEL_PAD_X, PANEL_PAD_Y
-    HEADER_H, ROW_H, STOP_W = PANEL_HEADER_H, PANEL_ROW_H, PANEL_STOP_W
+    HEADER_H, ROW_H = PANEL_HEADER_H, PANEL_ROW_H
     layout: dict = {"key": None, "size": (0, 0), "rows": [], "header_dot": None}
     pillpos: dict = {"x": None, "y": None}
     flash: dict = {}          # sid -> 這一步是什麼時候換的，用來閃一下
-    # 拖曳／點擊：平常穿透，按住 Ctrl+Alt 或滑鼠停在膠囊上一會兒才抓得到。
-    # 不做成「隨時可吃滑鼠」是因為自動化期間滑鼠會在整個螢幕亂點，膠囊一旦吃得到點擊，
-    # 剛好落在它上面的那一下就會被吞掉，自動化會莫名其妙失敗；要停留 240ms 才啟用，
-    # 自動化的點擊（移到就按）碰不到，人要按停止鈕卻很自然。
+    # 這是提醒視窗，不是控制台：畫面上沒有任何按鈕，停手一律用 Ctrl+Alt+Q。
+    # 所以它永遠點擊穿透，只有「按住 Ctrl+Alt」時才暫時吃得到滑鼠好讓人把它拖走——
+    # 自動化期間滑鼠會在整個螢幕亂點，只要視窗吃得到點擊，剛好落在它上面的那一下
+    # 就會被吞掉，被操控的程式收不到，自動化會莫名其妙失敗。
     grab = {"on": False, "dragging": False, "dx": 0, "dy": 0}
-    hover = {"n": 0, "armed": False}
 
     def row_color(st: dict, dim: bool = False) -> str:
         i = int(st.get("color", 0)) % len(SESSION_COLORS)
@@ -941,7 +932,7 @@ def run_overlay() -> None:
     def draw_panel(rows: list) -> None:
         """一個 session 一行。只開一個 Claude 時看起來跟以前一樣，開很多個才會長高。"""
         key = tuple((r["sid"], r.get("label"), r.get("detail")) for r in rows)
-        key += (rows[0].get("pos") if rows else None, hover["armed"])
+        key += (rows[0].get("pos") if rows else None,)
         if key == layout["key"]:
             return
         prev_detail = {r["sid"]: r.get("detail") for r in layout["rows"]}
@@ -956,10 +947,10 @@ def run_overlay() -> None:
         for r in rows:
             label = r.get("label") or ""
             detail = ellipsize(r.get("detail") or "", f_norm,
-                               budget - 16 - f_bold.measure(label) - 12 - w_time - STOP_W - 24)
+                               budget - 16 - f_bold.measure(label) - 12 - w_time - 12)
             cells.append((label, detail))
         w_rows = max((16 + f_bold.measure(lb) + (10 if lb else 0) + f_norm.measure(dt)
-                      + 12 + w_time + 10 + STOP_W for lb, dt in cells), default=0)
+                      + 12 + w_time for lb, dt in cells), default=0)
 
         pw = PAD_X * 2 + max(w_head, w_rows)
         ph = PAD_Y * 2 + HEADER_H + ROW_H * len(rows)
@@ -999,21 +990,12 @@ def run_overlay() -> None:
                 x += f_bold.measure(label) + 10
             pcv.create_text(x, cy, text=detail, anchor="w", font=f_norm,
                             fill=TEXT_SUB, tags="pill")
-            tid = pcv.create_text(pw - PAD_X - STOP_W - 10, cy, text="00:00", anchor="e",
+            tid = pcv.create_text(pw - PAD_X, cy, text="00:00", anchor="e",
                                   font=f_norm, fill=col, tags="pill")
-            # 停止鈕：滑鼠停在膠囊上才會亮起來，也才吃得到點擊
-            bx1, by1, bx2, by2 = stop_rect(pw, i)
-            round_rect(pcv, bx1, by1, bx2, by2, 5,
-                       fill="#3A2A24" if hover["armed"] else PILL_BG,
-                       outline=col if hover["armed"] else "#4A4643", width=1, tags="pill")
-            pcv.create_rectangle(bx1 + 8, cy - 4, bx2 - 8, cy + 4,
-                                 fill=col if hover["armed"] else TEXT_SUB,
-                                 outline="", tags="pill")
             layout["rows"].append({"sid": sid, "dot_id": dot, "time_id": tid,
                                    "color": col, "dim": row_color(r, True),
                                    "detail": r.get("detail"),
-                                   "started_at": float(r.get("started_at", _now())),
-                                   "stop": (bx1, by1, bx2, by2)})
+                                   "started_at": float(r.get("started_at", _now()))})
 
     def draw_border(color: str) -> None:
         cv.delete("border")
@@ -1034,18 +1016,7 @@ def run_overlay() -> None:
         except Exception:
             pass
 
-    def stop_one(sid: str) -> None:
-        """停止鈕＝只收回這一條的控制權，別條繼續。語意跟 Ctrl+Alt+Q 一樣是黏著的：
-        那條 session 在使用者開口之前都會被 hook 擋住，不會自己再亮第二次。"""
-        row = next((r for r in layout["rows"] if r["sid"] == sid), None)
-        latch_stop(sid, T("how_button"), (row or {}).get("detail", ""))
-        trace(f"stop button: sid={sid}")
-
     def on_press(e) -> None:
-        sid = hit_stop(layout["rows"], e.x, e.y)
-        if sid:
-            stop_one(sid)
-            return
         grab["dragging"] = True
         grab["dx"] = e.x_root - pill.winfo_x()
         grab["dy"] = e.y_root - pill.winfo_y()
@@ -1103,19 +1074,6 @@ def run_overlay() -> None:
             return
         holding = bool(u.GetAsyncKeyState(0x11) & 0x8000
                        and u.GetAsyncKeyState(0x12) & 0x8000)
-        # 滑鼠在膠囊上停留 240ms 才啟用點擊：自動化的點擊是「移到就按」，碰不到這個門檻，
-        # 所以不會被膠囊吞掉；人要按停止鈕則完全無感。
-        pt = wintypes.POINT()
-        inside = False
-        if u.GetCursorPos(ctypes.byref(pt)) and layout["size"] != (0, 0):
-            px, py = pillpos["x"], pillpos["y"]
-            pw, ph = layout["size"]
-            inside = px is not None and px <= pt.x <= px + pw and py <= pt.y <= py + ph
-        hover["n"] = hover["n"] + 1 if inside else 0
-        armed = hover["n"] >= 3
-        if armed != hover["armed"]:
-            hover["armed"] = armed
-            layout["key"] = None          # 讓停止鈕亮起來／暗回去
 
         if holding:
             if u.GetAsyncKeyState(0xBD) & 0x8000:        # VK_OEM_MINUS
@@ -1123,7 +1081,7 @@ def run_overlay() -> None:
             elif u.GetAsyncKeyState(0xBB) & 0x8000:      # VK_OEM_PLUS
                 bump_opacity(+0.03)
         if not grab["dragging"]:                         # 拖到一半放開 Ctrl+Alt 不要斷手
-            set_grab(holding or armed)
+            set_grab(holding)
         # 調完透明度節流寫檔，不要每 80ms 落一次磁碟
         if opa["dirty"] and _now() - opa["wrote_at"] > 0.6:
             c = read_config()
@@ -1134,7 +1092,7 @@ def run_overlay() -> None:
         root.after(80, input_poll)
 
     def reload_config_if_changed() -> None:
-        """外面下 `hud.py config --opacity ...` 時，不用重開 HUD 就吃到新設定。"""
+        """外面下 `notice.py config --opacity ...` 時，不用重開 HUD 就吃到新設定。"""
         m = _cfg_mtime()
         if m == cfg_seen["mtime"]:
             return

@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-"""automation-hud 的自測：不開 GUI，純邏輯。
+"""automation-notice（自動化提醒視窗）的自測：不開 GUI，純邏輯。
 
     python selftest.py
 
@@ -25,7 +25,7 @@ try:
 except Exception:
     pass
 
-import hud
+import notice as hud
 
 FAILED = []
 
@@ -87,24 +87,20 @@ def test_english() -> None:
     hud._LANG["v"] = "zh"
 
 
-def test_stop_button() -> None:
-    print("\n-- 2. 停止鈕 --")
-    pw = 785
-    r0, r1 = hud.stop_rect(pw, 0), hud.stop_rect(pw, 1)
-    check("第 0 列按鈕位置", r0, (743, 35, 767, 53))
-    check_that("每列往下差一個 row 高", r1[1] - r0[1] == hud.PANEL_ROW_H)
-    check_that("按鈕貼右緣", r0[2] == pw - hud.PANEL_PAD_X)
-
-    rows = [{"sid": "s0", "stop": r0}, {"sid": "s1", "stop": r1}]
-    check("點在第 0 列按鈕上", hud.hit_stop(rows, 755, 44), "s0")
-    check("點在第 1 列按鈕上", hud.hit_stop(rows, 755, 68), "s1")
-    check("點在文字區不算命中（要能拖）", hud.hit_stop(rows, 300, 44), None)
-    check("點在兩列之間不算命中", hud.hit_stop(rows, 755, 57), None)
-    check("點在按鈕左邊一格不算命中", hud.hit_stop(rows, 740, 44), None)
+def test_no_buttons() -> None:
+    print()
+    print('-- 2. 畫面上不該有任何按鈕 --')
+    check_that('沒有停止鈕的命中判定', not hasattr(hud, 'hit_stop'),
+               '這是提醒視窗不是控制台，停手只走 Ctrl+Alt+Q')
+    check_that('沒有停止鈕的位置計算', not hasattr(hud, 'stop_rect'))
+    check_that('版面常數不再保留按鈕寬度', not hasattr(hud, 'PANEL_STOP_W'))
+    check_that('仍保留列高與表頭高', hud.PANEL_ROW_H > 0 and hud.PANEL_HEADER_H > 0)
+    check(chr(31) if False else '第 0 列的垂直中心', hud.row_center_y(0),
+          hud.PANEL_PAD_Y + hud.PANEL_HEADER_H + 12)
 
 
 def test_latch() -> None:
-    print("\n-- 3. 停了就擋著 --")
+    print("\n-- 3. 停了就擋著（只走熱鍵／CLI）--")
     hud.ensure_overlay("t", "動作 A", ttl=60, pos="bottom", border=True, sid="test_a", label="專案A")
     hud.ensure_overlay("t", "動作 B", ttl=60, pos="bottom", border=True, sid="test_b", label="專案B")
     sids = [r["sid"] for r in hud.active_sessions()]
@@ -143,13 +139,13 @@ def test_colors() -> None:
 def main() -> int:
     hud._LANG["v"] = "zh"      # 斷言寫的是中文，先釘住語言
     if hud.overlay_alive():
-        print("提示層正在跑，先 `python hud.py stop` 再測（自測會動到執行期狀態）")
+        print("提示層正在跑，先 `python notice.py stop` 再測（自測會動到執行期狀態）")
         return 2
     keep = hud.APP_DIR.exists()
     try:
         test_describe()
         test_english()
-        test_stop_button()
+        test_no_buttons()
         test_latch()
         test_colors()
     finally:

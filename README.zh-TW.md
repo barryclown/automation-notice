@@ -1,4 +1,4 @@
-# automation-hud — 「Claude 自動化中」螢幕提示層
+# automation-notice — 自動化提醒視窗
 
 [English](README.md) | **繁體中文**
 
@@ -9,12 +9,12 @@ Claude Code 在操控你已登入的 Chrome（Claude in Chrome）、或跑前景
 
 ```
 ● Claude 自動化中                                    Ctrl+Alt+Q 收回控制權
-● NewGame         在 Chrome 左鍵點擊 座標 (640, 360)            01:24  ⏹
-● automation-hud  開啟網址 example.com/jobs/1234                00:18  ⏹
+● NewGame            在 Chrome 左鍵點擊 座標 (640, 360)         01:24
+● automation-notice  開啟網址 example.com/jobs/1234             00:18
 ```
 
 每一行是一個 Claude Code session，有自己的顏色、專案名（取那個 session 的工作目錄）、
-計時與停止鈕。只開一個 Claude 時就只有一行。
+與計時。只開一個 Claude 時就只有一行。
 
 動作那一欄寫的是**這一步實際會動到什麼**，不是工具名稱：點了哪個座標或哪個元素、
 輸入了哪一串字、開了哪個完整網址、表單填了什麼值、批次操作有幾步分別是什麼。
@@ -26,18 +26,18 @@ Claude Code 在操控你已登入的 Chrome（Claude in Chrome）、或跑前景
 ## 你只需要知道四件事
 
 - **它不會擋到你**：整層點擊穿透、不搶焦點、不進工作列與 Alt+Tab，滑鼠點下去是點到底下的視窗。
-- **停止**：每一行右邊的 ⏹ 只收回那一條 session 的控制權；`Ctrl+Alt+Q` 是全部一起停。
-  兩種都會留下**會黏著的終止 latch**：在你自己開口之前，PreToolUse hook 會**直接擋掉**那條 session
-  所有會借走你鍵鼠的工具呼叫（回 `deny` 並附上你是幾點幾分中斷、當時 AI 正在做什麼），
-  AI 只能停手回報，不會自己再試第二次。你下一則訊息一送出就自動解除。
+- **停手是按快捷鍵，不是按鈕**：`Ctrl+Alt+Q` 收回控制權。畫面上刻意沒有任何可以點的東西——
+  會吃滑鼠的視窗，剛好擋到自動化那一下點擊就會把它吞掉。停手會留下**會黏著的終止 latch**：
+  在你自己開口之前，PreToolUse hook 會**直接擋掉**所有會借走你鍵鼠的工具呼叫（回 `deny`
+  並附上你是幾點幾分中斷、當時 AI 正在做什麼），AI 只能停手回報，不會自己再試第二次。
+  你下一則訊息一送出就自動解除。
 - **不想看到就推走**：膠囊可以拖出畫面外，只留一小截當把手（`config --park right` 一行也行），
   `config --border off` 關掉螢幕四邊的橘框，`config --reset-pos` 把它叫回來。
 - **截圖、錄影、直播都拍不到它**（預設）：只有你的眼睛看得到。AI 自己截圖時不會被它擋住，
   直播或錄影也不會把 AI 正在輸入的內容拍出去。想讓錄影拍得到就 `config --capture show`。
 
-停止鈕平常不吃滑鼠，**滑鼠停在膠囊上約 0.25 秒才會啟用**。這是故意的：自動化期間滑鼠會在整個
-螢幕亂點，膠囊若隨時吃得到點擊，剛好落在它上面的那一下會被吞掉，自動化就莫名其妙失敗。
-自動化的點擊是「移到就按」，碰不到這個門檻；人要按鈕則完全無感。
+膠囊全程點擊穿透，只有你**按住 Ctrl+Alt** 時才暫時吃得到滑鼠，好讓你把它拖到別的地方；
+放開就恢復穿透。上面沒有任何可以點的東西，這是刻意的。
 
 ## 安裝
 
@@ -47,7 +47,7 @@ Claude Code 在操控你已登入的 Chrome（Claude in Chrome）、或跑前景
 
 ```
 /plugin marketplace add <owner>/<repo>
-/plugin install automation-hud
+/plugin install automation-notice
 ```
 
 或直接接到自己的 `~/.claude/settings.json`：
@@ -84,13 +84,13 @@ plugin 版本用 PATH 上的 `python`。
 ## 設定
 
 ```bash
-python hud.py config --opacity 0.5              # 透明度 0.2～1.0（預設 0.72）
-python hud.py config --capture show             # 截圖／錄影拍得到（預設 hide＝拍不到）
-python hud.py config --border off               # 關掉螢幕四邊的橘框
-python hud.py config --park right               # 推出畫面外，只留一小截（left/right/top/bottom）
-python hud.py config --reset-pos                # 位置回到底部置中
-python hud.py config --hook-ttl 300             # 兩個動作之間最多隔幾秒還亮著（預設 180，最少 30）
-python hud.py config --lang en                  # 介面語言（預設跟著 Windows 顯示語言走）
+python notice.py config --opacity 0.5              # 透明度 0.2～1.0（預設 0.72）
+python notice.py config --capture show             # 截圖／錄影拍得到（預設 hide＝拍不到）
+python notice.py config --border off               # 關掉螢幕四邊的橘框
+python notice.py config --park right               # 推出畫面外，只留一小截（left/right/top/bottom）
+python notice.py config --reset-pos                # 位置回到底部置中
+python notice.py config --hook-ttl 300             # 兩個動作之間最多隔幾秒還亮著（預設 180，最少 30）
+python notice.py config --lang en                  # 介面語言（預設跟著 Windows 顯示語言走）
 ```
 
 畫面上：按住 Ctrl+Alt 膠囊就能抓著拖走（放開恢復點擊穿透），Ctrl+Alt+- / = 或按住時滾輪調透明度。
@@ -99,16 +99,16 @@ python hud.py config --lang en                  # 介面語言（預設跟著 Wi
 ## 手動用法
 
 ```bash
-python hud.py start --detail "批次填寫表單" --ttl 600
-python hud.py set   --detail "第 9/15 筆"      # 不重啟就換文字
-python hud.py status                           # 目前有哪幾條在跑、各自什麼顏色
-python hud.py check-abort                      # 被停過就 exit 3
-python hud.py clear-abort                      # 解除終止 latch（平常 hook 會自動做）
-python hud.py stop                             # 全部熄掉
-python selftest.py                             # 不開 GUI 的自測（描述／停止鈕／latch／分色）
+python notice.py start --detail "批次填寫表單" --ttl 600
+python notice.py set   --detail "第 9/15 筆"      # 不重啟就換文字
+python notice.py status                           # 目前有哪幾條在跑、各自什麼顏色
+python notice.py check-abort                      # 被停過就 exit 3
+python notice.py clear-abort                      # 解除終止 latch（平常 hook 會自動做）
+python notice.py stop                             # 全部熄掉
+python selftest.py                             # 不開 GUI 的自測（描述／版面／latch／分色）
 
 # 想知道某個工具呼叫在畫面上會顯示成什麼，直接餵 payload 進去看
-echo '{"tool_name":"mcp__claude-in-chrome__computer","tool_input":{"action":"type","text":"你好"}}' | python hud.py describe
+echo '{"tool_name":"mcp__claude-in-chrome__computer","tool_input":{"action":"type","text":"你好"}}' | python notice.py describe
 ```
 
 ## 限制
@@ -124,12 +124,12 @@ echo '{"tool_name":"mcp__claude-in-chrome__computer","tool_input":{"action":"typ
 
 ## 執行期檔案
 
-放 `%LOCALAPPDATA%\ClaudeAutomationHUD\`：
+放 `%LOCALAPPDATA%\ClaudeAutomationNotice\`：
 
 | 檔案 | 誰寫 | 用途 |
 | --- | --- | --- |
 | `sessions/<session_id>.json` | CLI／hook | 每條 session 現在在做什麼（手動啟動的是 `manual.json`） |
-| `aborts/<session_id>.json` | overlay | 按停止鈕留下的黏著 latch |
+| `aborts/<session_id>.json` | overlay | 單條 session 的黏著 latch（CLI 用） |
 | `abort.json` | overlay | Ctrl+Alt+Q 的全域 latch |
 | `heartbeat.json` | overlay | pid + 時間戳，用來判斷還活著沒 |
 | `config.json` | CLI | 你的設定 |
@@ -162,5 +162,5 @@ echo '{"tool_name":"mcp__claude-in-chrome__computer","tool_input":{"action":"typ
   目標檔正被讀會失敗，累積出一堆孤兒暫存檔。拆成一條一個檔之後幾乎不會撞；仍保留重試與
   `sweep_stale_tmp()`（要用 `rglob`，子資料夾裡的也要清）。
 - **常駐進程用 `CREATE_BREAKAWAY_FROM_JOB`**，不要用 WMI。agent 的 shell 在 KILL_ON_JOB_CLOSE 的
-  job 裡，一般子進程會跟著那次工具呼叫被殺；WMI 建出來的進程在某些機器上會靜默死掉，連 hud.py 第一行
+  job 裡，一般子進程會跟著那次工具呼叫被殺；WMI 建出來的進程在某些機器上會靜默死掉，連 notice.py 第一行
   都沒跑到（實測過，boot.log 全空）。

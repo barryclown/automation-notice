@@ -138,6 +138,9 @@ def test_colors() -> None:
 
 def main() -> int:
     hud._LANG["v"] = "zh"      # 斷言寫的是中文，先釘住語言
+    # 這是 headless 測試：ensure_overlay() 平常會真的開一個提示層視窗，測試裡每呼叫一次就多開一個
+    # （實測一輪留下 7 個 pythonw），所以先把生進程那步換掉，只驗狀態邏輯。
+    hud.spawn_overlay = lambda: True
     if hud.overlay_alive():
         print("提示層正在跑，先 `python notice.py stop` 再測（自測會動到執行期狀態）")
         return 2

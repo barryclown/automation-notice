@@ -92,28 +92,64 @@ exception: if you pressed Ctrl+Alt+Q and the agent still tries to act, the hook 
 sentence saying when you took back control and what it was doing, and only that sentence reaches
 the conversation.
 
-## Install
+## Install and use
 
-Requires Windows 10 2004 or later, Python 3.9+ with tkinter (the python.org installer
-includes it), and Claude Code.
+### 1. What you need
 
-As a Claude Code plugin:
+- Windows 10 2004 or later
+- Claude Code (desktop app or CLI)
+- Python 3.9+ with tkinter. The python.org installer includes tkinter by default; tick "Add python.exe to PATH".
+  To check, run `python -c "import tkinter"` in a command prompt; no error means you're set.
+  If the Microsoft Store opens instead, the `python` on your PATH is the Store stub, so install real Python first.
+
+### 2. Install (pick one method, not both, or every hook runs twice)
+
+**Method A: as a Claude Code plugin (recommended).** In Claude Code, type:
 
 ```
 /plugin marketplace add barryclown/automation-notice
-/plugin install automation-notice
+/plugin install automation-notice@barryclown
 ```
 
-Or wire it into your own `~/.claude/settings.json`:
+Then restart Claude Code. The plugin uses the `python` on your PATH.
+
+**Method B: wire it into your own settings**
 
 ```bash
-python install.py              # install or update; backs up settings.json to ~/.claude/backups/ first
-python install.py --dry-run    # print what would be written, change nothing
-python install.py --uninstall  # remove only this tool's hooks
+git clone https://github.com/barryclown/automation-notice.git   # or Code → Download ZIP on GitHub
+cd automation-notice
+python install.py              # backs up ~/.claude/settings.json to ~/.claude/backups/ first
 ```
 
-`install.py` uses the Python that runs it, so there are no paths to edit; re-run it after
-moving the folder. The plugin uses `python` from PATH.
+Then restart Claude Code. `install.py` uses the Python you run it with, so there are no paths to edit;
+if you move the folder, just run it again. `python install.py --dry-run` shows what it would write.
+
+### 3. Check it works
+
+- Method B: in the folder, run `python notice.py start --detail test --ttl 8`. An orange border and a
+  panel appear and disappear on their own after 8 seconds.
+- Method A: ask Claude to open any web page with Claude in Chrome; the panel should light up with
+  "Opening …".
+
+### 4. Everyday use
+
+Nothing to do. Whenever Claude touches your Chrome or runs a command that drives the keyboard or
+mouse, it lights up by itself, and it goes away when the turn ends or you send a new message.
+
+- **Make the agent stop**: press `Ctrl+Alt+Q`. Until you send your next message, the agent cannot
+  touch your keyboard or mouse.
+- **Panel in the way**: rest the cursor on it for a moment and drag it, or `config --park right` to
+  push it to the edge with only a small handle showing.
+- **Opacity, letting recordings capture it, turning off the border**: see Settings below.
+- **Your own keyboard/mouse scripts**: put their names in `triggers.local.txt` (see When it lights up).
+
+With Method A, `notice.py` lives in `~/.claude/plugins/cache/barryclown/automation-notice/<version>/`;
+use that path for `config` commands.
+
+### 5. Update and remove
+
+- Method A: update with `/plugin marketplace update barryclown`; remove with `/plugin uninstall automation-notice@barryclown`
+- Method B: update with `git pull` and run `python install.py` again; remove with `python install.py --uninstall` (other hooks are left alone)
 
 ## When it lights up
 

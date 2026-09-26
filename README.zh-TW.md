@@ -78,27 +78,58 @@ notice.py 收到 {"tool_name": "mcp__claude-in-chrome__computer",
 AI 還想動手，hook 會回一句「使用者在幾點按了 Ctrl+Alt+Q 收回控制權（當時正在做什麼）」擋下它，
 只有這一句會進對話。
 
-## 安裝
+## 安裝與使用
 
-需求：Windows 10 2004 以上、帶 tkinter 的 Python 3.9+（python.org 的安裝檔預設就有）、Claude Code。
+### 1. 先準備好
 
-當成 Claude Code plugin 裝（別人用這個）：
+- Windows 10 2004 以上
+- Claude Code（桌面版或終端機版都可以）
+- Python 3.9 以上，而且要有 tkinter。到 python.org 下載安裝檔，安裝時勾選「Add python.exe to PATH」，tkinter 預設就會一起裝。
+  確認方法：開命令提示字元輸入 `python -c "import tkinter"`，沒有出現錯誤就可以。
+  如果跳出微軟商店，代表 PATH 上的 `python` 是商店的空殼，要先裝真的 Python。
+
+### 2. 安裝（兩種方法選一種，不要兩種都裝，否則同一組 hook 會跑兩次）
+
+**方法 A：當成 Claude Code plugin 裝（建議）**，在 Claude Code 的對話框輸入：
 
 ```
-/plugin marketplace add <owner>/<repo>
-/plugin install automation-notice
+/plugin marketplace add barryclown/automation-notice
+/plugin install automation-notice@barryclown
 ```
 
-或直接接到自己的 `~/.claude/settings.json`：
+裝好後重開 Claude Code。plugin 版用的是 PATH 上的 `python`。
+
+**方法 B：手動接到自己的設定**
 
 ```bash
-python install.py              # 安裝或更新；動 settings.json 之前會自動備份到 ~/.claude/backups/
-python install.py --dry-run    # 只看會寫進去什麼
-python install.py --uninstall  # 拔掉（其他 hook 不動）
+git clone https://github.com/barryclown/automation-notice.git   # 或在 GitHub 頁面按 Code → Download ZIP
+cd automation-notice
+python install.py              # 動 ~/.claude/settings.json 之前會自動備份到 ~/.claude/backups/
 ```
 
-`install.py` 會用「執行它的那個 Python」，不用手改路徑；資料夾搬家後重跑一次就好。
-plugin 版本用 PATH 上的 `python`。
+裝好後重開 Claude Code。`install.py` 會用「執行它的那個 Python」，不用手改路徑；資料夾搬家後重跑一次就好。
+`python install.py --dry-run` 可以先看會寫進去什麼。
+
+### 3. 確認裝好了
+
+- 方法 B：在程式資料夾執行 `python notice.py start --detail 測試 --ttl 8`，螢幕四邊亮起橘框、底部出現面板，8 秒後自己消失。
+- 方法 A：請 Claude 用 Claude in Chrome 開任何一個網頁，畫面應該會亮起來、寫著「開啟網址 …」。
+
+### 4. 平常怎麼用
+
+不用做任何事。只要 Claude 動到你的 Chrome，或跑會操作鍵鼠的指令，它就會自己亮起來；回合結束或你送出新訊息就熄掉。
+
+- **叫 AI 停手**：按 `Ctrl+Alt+Q`。在你送出下一則訊息之前，AI 都動不了你的鍵鼠。
+- **面板擋到東西**：游標在上面停一下就能拖走；或用 `config --park right` 推到畫面邊緣，只留一小截把手。
+- **調透明度、讓錄影拍得到、關掉四邊的框**：見下面〈設定〉。
+- **自己的鍵鼠腳本也想觸發**：把腳本名稱寫進 `triggers.local.txt`（見〈什麼時候會亮〉）。
+
+用方法 A 裝的，`notice.py` 在 `~/.claude/plugins/cache/barryclown/automation-notice/<版本>/` 裡，下 `config` 指令時要用這個路徑。
+
+### 5. 更新與移除
+
+- 方法 A：更新 `/plugin marketplace update barryclown`；移除 `/plugin uninstall automation-notice@barryclown`
+- 方法 B：更新 `git pull` 後重跑 `python install.py`；移除 `python install.py --uninstall`（其他 hook 不動）
 
 ## 什麼時候會亮
 

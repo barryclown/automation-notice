@@ -21,7 +21,7 @@ Claude Code 在操控你已登入的 Chrome（Claude in Chrome）、或跑前景
 遇到還沒對照過的新工具，會直接把它的參數攤平寫出來（`工具名：key=value、key=value`），
 所以不會因為工具更新就變成一行看不懂的東西。動作換了那一行的圓點會亮一下，好認出它剛動過。
 
-文字由本機的 hook 算出來，不經過模型，所以不花 token；hook 也不會往對話裡印任何東西。
+這行字是照 AI 實際下的指令直接翻出來的，不是 AI 自己的說法，也不花 token。原理見下面〈它怎麼運作〉。
 
 ## 你只需要知道四件事
 
@@ -39,6 +39,44 @@ Claude Code 在操控你已登入的 Chrome（Claude in Chrome）、或跑前景
 膠囊平常讓滑鼠直接穿過去。要移動它，**把游標在上面停一下**：外框變白、游標變成手形，就能拖走；
 游標移開就恢復穿透。按住 Ctrl+Alt 則是馬上就能抓。Claude in Chrome 操作網頁時不會移動你真的游標，
 所以 AI 自己的點擊不會點到膠囊上。上面沒有任何按鈕，這是刻意的。
+
+## 它怎麼運作
+
+它不是 Claude 的一部分，是掛在 Claude Code 旁邊的小程式（`notice.py`），靠 Claude Code 的 **hook** 機制接上去：
+hook 是「某個時刻發生時，Claude Code 自動執行你指定的程式」。`install.py` 在 `~/.claude/settings.json`
+登記了這幾個時刻：
+
+| 時刻 | `notice.py` 做什麼 |
+| --- | --- |
+| AI 要用 Chrome 工具之前 | 算出那行字，讓面板亮起來 |
+| AI 要跑指令之前 | 先看指令文字裡有沒有操作鍵鼠的關鍵字；沒有就直接跳過，連 Python 都不啟動 |
+| 你送出新訊息時 | 收掉這個對話那一行，解除 Ctrl+Alt+Q 的鎖定 |
+| AI 回合結束、對話關閉時 | 收掉這個對話那一行 |
+
+一次完整的流程：
+
+```
+AI 決定要點 Chrome 的 (640, 360)
+  │  Claude Code 在真的執行之前，先把「工具名稱＋參數」交給 notice.py
+  ▼
+notice.py 收到 {"tool_name": "mcp__claude-in-chrome__computer",
+               "tool_input": {"action": "left_click", "coordinate": [640, 360]}}
+  │  照規則翻成「在 Chrome 左鍵點擊 座標 (640, 360)」，寫進這個對話自己的狀態檔
+  ▼
+提醒視窗（常駐小程式）每 0.25 秒讀一次狀態檔，畫橘框和面板，一個對話一行
+  │
+  ▼
+回合結束或你開口 → 收掉那一行；一行都不剩，提醒視窗自己關掉
+```
+
+想看某個動作會被翻成什麼，可以直接餵給它：
+`echo '{"tool_name":"mcp__claude-in-chrome__computer","tool_input":{"action":"left_click","coordinate":[640,360]}}' | python notice.py describe`
+
+**為什麼可信、為什麼不花 token**：那行字是照 AI 實際下的指令翻出來的，不是請 AI 自己描述。
+所以 AI 想把動作講得好聽也改不了，而且整個過程都是你電腦上的普通程式在跑，不佔 AI 的思考，
+也不花 token。hook 不會輸出任何文字，對話裡不會多出東西。唯一的例外：你按了 Ctrl+Alt+Q 之後
+AI 還想動手，hook 會回一句「使用者在幾點按了 Ctrl+Alt+Q 收回控制權（當時正在做什麼）」擋下它，
+只有這一句會進對話。
 
 ## 安裝
 

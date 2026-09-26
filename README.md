@@ -24,8 +24,8 @@ seen, it flattens the arguments (`tool: key=value, key=value`), so a new tool ne
 into an unreadable line. The dot on a row flashes when that step changes, so you can tell
 it just moved.
 
-The text is computed locally by a hook, never by the model, so **it costs no tokens** —
-and the hook prints nothing into the conversation.
+The line is a direct translation of the command the agent is actually about to run, not the
+agent's own description of it, and it costs no tokens. See **How it works** below.
 
 ## Four things worth knowing
 
@@ -50,6 +50,47 @@ outline turns white and the cursor becomes a hand, and you can drag it. Move awa
 goes back to passing clicks through. Holding Ctrl+Alt makes it grabbable right away.
 Claude in Chrome drives the page without moving your real cursor, so the agent's own clicks
 never land on the panel. There are no buttons on it, by design.
+
+## How it works
+
+It is not part of Claude. It is a small program (`notice.py`) that sits next to Claude Code and is
+wired in through Claude Code **hooks**: a hook tells Claude Code "when this happens, run this program".
+`install.py` registers these moments in `~/.claude/settings.json`:
+
+| Moment | What `notice.py` does |
+| --- | --- |
+| Before the agent uses a Chrome tool | Works out the line of text and lights up the panel |
+| Before the agent runs a shell command | Checks the command text for keyboard/mouse keywords; if there are none it skips, without even starting Python |
+| When you send a new message | Clears this conversation's row and lifts the Ctrl+Alt+Q lock |
+| When the agent's turn ends or the session closes | Clears this conversation's row |
+
+One round trip:
+
+```
+The agent decides to click (640, 360) in Chrome
+  │  Before running it, Claude Code hands the tool name and arguments to notice.py
+  ▼
+notice.py receives {"tool_name": "mcp__claude-in-chrome__computer",
+                    "tool_input": {"action": "left_click", "coordinate": [640, 360]}}
+  │  and turns it into "Clicking in Chrome at (640, 360)", written to this conversation's state file
+  ▼
+The notice window (a small resident process) reads the state files every 0.25 s and draws the
+border and panel, one row per conversation
+  │
+  ▼
+Turn ends, or you speak → that row is cleared; when no rows are left the window closes itself
+```
+
+To see how any action will be described, feed it in directly:
+`echo '{"tool_name":"mcp__claude-in-chrome__computer","tool_input":{"action":"left_click","coordinate":[640,360]}}' | python notice.py describe`
+
+**Why you can trust it, and why it costs no tokens.** The line is translated from the command the
+agent actually issued; the agent is never asked to describe itself, so it cannot make an action
+sound nicer than it is. Everything runs as an ordinary program on your machine, outside the model,
+so it takes no tokens. The hook prints nothing, so nothing is added to the conversation. The one
+exception: if you pressed Ctrl+Alt+Q and the agent still tries to act, the hook blocks it with one
+sentence saying when you took back control and what it was doing, and only that sentence reaches
+the conversation.
 
 ## Install
 

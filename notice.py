@@ -307,6 +307,22 @@ PANEL_HEADER_H, PANEL_ROW_H = 22, 24
 PANEL_HANDLE = 28
 
 
+HOVER_ARM_S = 0.35   # 游標停在面板上這麼久，面板就能直接拖
+
+
+def hover_armed(over: bool, since: float, now: float) -> tuple[bool, float]:
+    """回傳（現在能不能抓, 新的起算時間）。游標一離開就歸零，停滿 HOVER_ARM_S 才能抓。
+
+    平常整片點擊穿透，AI 點到面板上的那一下才不會被吞掉；但只能「按住 Ctrl+Alt 才拖得動」
+    沒人猜得到（2026-09-26 barry 直接拖、拖不動）。Claude in Chrome 走 CDP 不會移動真的游標，
+    所以「游標停在上面」幾乎只會是人；前景腳本移過去就立刻點的，停不滿 0.35 秒也不受影響。
+    """
+    if not over:
+        return False, 0.0
+    since = since or now
+    return now - since >= HOVER_ARM_S, since
+
+
 def clamp_pill(x: int, y: int, pw: int, ph: int, area: tuple) -> tuple[int, int]:
     """把膠囊夾在「至少露出 PANEL_HANDLE」的範圍內，而不是整個框都要在畫面裡。"""
     wx, wy, ww, wh = area
@@ -585,13 +601,20 @@ class RECT(ctypes.Structure):
 
 
 def work_area() -> tuple[int, int, int, int]:
-    """回傳桌面工作區 (x, y, w, h)，扣掉工作列，這樣四邊框都看得到。"""
+    """回傳桌面工作區 (x, y, w, h)，扣掉工作列。膠囊放在這裡面，才不會蓋住工作列。"""
     r = RECT()
     ok = ctypes.windll.user32.SystemParametersInfoW(0x0030, 0, ctypes.byref(r), 0)
     if not ok:
         u = ctypes.windll.user32
         return 0, 0, u.GetSystemMetrics(0), u.GetSystemMetrics(1)
     return r.left, r.top, r.right - r.left, r.bottom - r.top
+
+
+def screen_area() -> tuple[int, int, int, int]:
+    """主螢幕整片 (x, y, w, h)，包含工作列。橘框畫在這裡：以前畫在工作區裡，
+    底邊落在工作列上緣，看起來像底下空了一截（2026-09-26 量到底邊在 y=1028，螢幕高 1080）。"""
+    u = ctypes.windll.user32
+    return 0, 0, u.GetSystemMetrics(0), u.GetSystemMetrics(1)
 
 
 def make_click_through(hwnd: int, click_through: bool = True) -> None:
@@ -786,8 +809,9 @@ def run_overlay() -> None:
     cfg = read_config()
     opa = {"v": clamp_opacity(cfg.get("opacity")), "dirty": False, "wrote_at": 0.0}
 
-    wx, wy, ww, wh = work_area()
-    trace(f"workarea={wx},{wy},{ww}x{wh} opacity={opa['v']}")
+    wx, wy, ww, wh = work_area()          # 膠囊的活動範圍（不蓋工作列）
+    sx, sy, sw, sh = screen_area()        # 橘框的範圍（整片螢幕，連工作列一起框）
+    trace(f"workarea={wx},{wy},{ww}x{wh} screen={sw}x{sh} opacity={opa['v']}")
 
     _u = ctypes.windll.user32
 
@@ -797,7 +821,7 @@ def run_overlay() -> None:
     # 趁還有權利時先把前景鎖上，Tk 的啟用就搶不到前景；show_windows 之後再解鎖。
     fg_locked = bool(_u.LockSetForegroundWindow(1))    # LSFW_LOCK
     trace(f"LockSetForegroundWindow={fg_locked}")
-    # 邊框那層：整片蓋住工作區，永遠點擊穿透。
+    # 邊框那層：整片蓋住螢幕，永遠點擊穿透。
     root = tk.Tk()
     root.withdraw()
     root.overrideredirect(True)
@@ -805,9 +829,9 @@ def run_overlay() -> None:
     root.attributes("-topmost", True)
     root.attributes("-alpha", opa["v"])
     root.attributes("-transparentcolor", TRANS)
-    root.geometry(f"{ww}x{wh}+{wx}+{wy}")
+    root.geometry(f"{sw}x{sh}+{sx}+{sy}")
 
-    cv = tk.Canvas(root, width=ww, height=wh, bg=TRANS, highlightthickness=0, bd=0)
+    cv = tk.Canvas(root, width=sw, height=sh, bg=TRANS, highlightthickness=0, bd=0)
     cv.pack(fill="both", expand=True)
 
     # 膠囊獨立成第二個視窗，才能被拖著走（整片視窗沒辦法只讓中間那塊可拖）。
@@ -1030,8 +1054,8 @@ def run_overlay() -> None:
     def draw_border(color: str) -> None:
         cv.delete("border")
         t = 4
-        for x1, y1, x2, y2 in ((0, 0, ww, t), (0, wh - t, ww, wh),
-                               (0, 0, t, wh), (ww - t, 0, ww, wh)):
+        for x1, y1, x2, y2 in ((0, 0, sw, t), (0, sh - t, sw, sh),
+                               (0, 0, t, sh), (sw - t, 0, sw, sh)):
             cv.create_rectangle(x1, y1, x2, y2, fill=color, outline="", tags="border")
 
     def set_grab(on: bool) -> None:
@@ -1098,12 +1122,19 @@ def run_overlay() -> None:
 
     cfg_seen = {"mtime": _cfg_mtime()}
 
+    hover = {"since": 0.0}
+
     def input_poll() -> None:
-        """80ms 輪詢 Ctrl+Alt：按著就讓膠囊可抓，同時 -/+ 連續調透明度。"""
+        """80ms 輪詢：游標停在膠囊上或按著 Ctrl+Alt 就讓膠囊可抓；按著 Ctrl+Alt 時 -/+ 連續調透明度。"""
         if flags["quit"]:
             return
         holding = bool(u.GetAsyncKeyState(0x11) & 0x8000
                        and u.GetAsyncKeyState(0x12) & 0x8000)
+        pt, r = wintypes.POINT(), RECT()
+        u.GetCursorPos(ctypes.byref(pt))
+        u.GetWindowRect(hwnd_pill, ctypes.byref(r))
+        over = r.left <= pt.x < r.right and r.top <= pt.y < r.bottom
+        armed, hover["since"] = hover_armed(over, hover["since"], _now())
 
         if holding:
             if u.GetAsyncKeyState(0xBD) & 0x8000:        # VK_OEM_MINUS
@@ -1111,7 +1142,7 @@ def run_overlay() -> None:
             elif u.GetAsyncKeyState(0xBB) & 0x8000:      # VK_OEM_PLUS
                 bump_opacity(+0.03)
         if not grab["dragging"]:                         # 拖到一半放開 Ctrl+Alt 不要斷手
-            set_grab(holding)
+            set_grab(holding or armed)
         # 調完透明度節流寫檔，不要每 80ms 落一次磁碟
         if opa["dirty"] and _now() - opa["wrote_at"] > 0.6:
             c = read_config()

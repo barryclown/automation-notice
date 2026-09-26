@@ -3,12 +3,13 @@
 
     python selftest.py
 
-檢查五件事：
+檢查六件事：
   1. 描述產生器把每種工具呼叫寫成什麼（畫面上第二行的內容，含英文版）
   2. 畫面上沒有任何按鈕（提醒視窗不是控制台，停手只走 Ctrl+Alt+Q）
   3. 終止 latch 的語意（停了就擋著，只有使用者能解除）
   4. 多 session 的顏色配置
   5. 同一時間只准一個 overlay（多個觸發同時到也不會疊出好幾個面板）
+  6. 游標停在面板上一下就能直接拖（不用先知道要按 Ctrl+Alt）
 
 會用到執行期資料夾，跑完自己清乾淨。
 """
@@ -158,6 +159,13 @@ def test_singleton() -> None:
     check_that("拿著的進程結束（含當掉）後，後到的接得手", hud.acquire_singleton(2000, name))
 
 
+def test_hover() -> None:
+    print("\n-- 6. 游標停在面板上一下就能直接拖 --")
+    check("剛移上去還不能抓", hud.hover_armed(True, 0.0, 100.0), (False, 100.0))
+    check_that("停滿就能抓", hud.hover_armed(True, 100.0, 100.0 + hud.HOVER_ARM_S + 0.01)[0])
+    check("一離開就歸零", hud.hover_armed(False, 100.0, 101.0), (False, 0.0))
+
+
 def main() -> int:
     hud._LANG["v"] = "zh"      # 斷言寫的是中文，先釘住語言
     # 這是 headless 測試：ensure_overlay() 平常會真的開一個提示層視窗，測試裡每呼叫一次就多開一個
@@ -174,6 +182,7 @@ def main() -> int:
         test_latch()
         test_colors()
         test_singleton()
+        test_hover()
     finally:
         for d in (hud.SESSIONS, hud.ABORT_DIR):
             shutil.rmtree(d, ignore_errors=True)

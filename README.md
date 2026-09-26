@@ -45,9 +45,11 @@ and the hook prints nothing into the conversation.
   agent's own screenshots aren't blocked by it, and a stream won't leak what the agent is
   typing. `config --capture show` makes it recordable.
 
-The panel is click-through at all times. It only accepts the mouse while you **hold
-Ctrl+Alt**, so you can drag it somewhere else; let go and it goes back to passing clicks
-through. Nothing on it is clickable, by design.
+The panel passes clicks through. To move it, **rest the cursor on it for a moment**: the
+outline turns white and the cursor becomes a hand, and you can drag it. Move away and it
+goes back to passing clicks through. Holding Ctrl+Alt makes it grabbable right away.
+Claude in Chrome drives the page without moving your real cursor, so the agent's own clicks
+never land on the panel. There are no buttons on it, by design.
 
 ## Install
 
@@ -110,8 +112,8 @@ python notice.py config --reset-pos      # bring it back to bottom centre
 python notice.py config --hook-ttl 300   # seconds allowed between two actions (default 180, min 30)
 ```
 
-On screen: hold Ctrl+Alt to grab and drag the panel (it goes back to click-through when you
-let go); Ctrl+Alt+- / = or the scroll wheel while holding adjusts opacity. Settings persist
+On screen: rest the cursor on the panel (or hold Ctrl+Alt) to drag it; Ctrl+Alt+- / = or the
+scroll wheel while holding Ctrl+Alt adjusts opacity. Settings persist
 and apply live.
 
 ## Manual use

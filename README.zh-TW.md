@@ -161,6 +161,9 @@ echo '{"tool_name":"mcp__claude-in-chrome__computer","tool_input":{"action":"typ
 - **一個 session 一個狀態檔**：以前多個 hook 進程搶寫同一個 `state.json`，Windows 上 `os.replace` 碰到
   目標檔正被讀會失敗，累積出一堆孤兒暫存檔。拆成一條一個檔之後幾乎不會撞；仍保留重試與
   `sweep_stale_tmp()`（要用 `rglob`，子資料夾裡的也要清）。
+- **同一時間只准一個 overlay**：hook 判斷「沒在跑」到新 overlay 寫出第一個心跳之間有 0.3～0.8 秒空窗，
+  這段時間內平行的工具呼叫或別的 session 會各自再開一個，好幾個面板疊在一起（實測同時 4 個觸發 → 4 個）。
+  overlay 一開機先搶具名 mutex，拿不到就等最多 1.5 秒（舊的若正在收尾就接手），還是拿不到就退出。
 - **常駐進程用 `CREATE_BREAKAWAY_FROM_JOB`**，不要用 WMI。agent 的 shell 在 KILL_ON_JOB_CLOSE 的
   job 裡，一般子進程會跟著那次工具呼叫被殺；WMI 建出來的進程在某些機器上會靜默死掉，連 notice.py 第一行
   都沒跑到（實測過，boot.log 全空）。

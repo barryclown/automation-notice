@@ -1,7 +1,7 @@
 {
   "name": "automation-notice",
   "description": "Shows what Claude Code is actually doing on your machine, step by step, and lets you take control back with Ctrl+Alt+Q. Click-through, never steals focus, invisible to screen capture, and costs no tokens. / 顯示 Claude Code 這一步到底在你的電腦上動什麼，按 Ctrl+Alt+Q 就能收回控制權。點擊穿透、不搶焦點、截圖拍不到，描述由本機 hook 算出來不花 token。",
-  "version": "0.3.1",
+  "version": "0.3.2",
   "author": {
     "name": "barryclown",
     "url": "https://github.com/barryclown"

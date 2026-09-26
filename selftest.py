@@ -3,11 +3,12 @@
 
     python selftest.py
 
-檢查四件事：
-  1. 描述產生器把每種工具呼叫寫成什麼（畫面上第二行的內容）
-  2. 停止鈕的位置與命中判定
+檢查五件事：
+  1. 描述產生器把每種工具呼叫寫成什麼（畫面上第二行的內容，含英文版）
+  2. 畫面上沒有任何按鈕（提醒視窗不是控制台，停手只走 Ctrl+Alt+Q）
   3. 終止 latch 的語意（停了就擋著，只有使用者能解除）
   4. 多 session 的顏色配置
+  5. 同一時間只准一個 overlay（多個觸發同時到也不會疊出好幾個面板）
 
 會用到執行期資料夾，跑完自己清乾淨。
 """
@@ -136,6 +137,27 @@ def test_colors() -> None:
     check_that("第一條仍是 Claude 橘", hud.SESSION_COLORS[0] == "#D97757")
 
 
+def test_singleton() -> None:
+    print("\n-- 5. 同一時間只准一個 overlay --")
+    import os
+    import subprocess
+    # 用測試專屬的 mutex 名稱，不跟真的提示層搶
+    name = f"Local\\ClaudeAutomationNotice.selftest.{os.getpid()}"
+    holder = subprocess.Popen(
+        [sys.executable, "-B", "-c",
+         "import sys,time;sys.path.insert(0,sys.argv[1]);import notice;"
+         "print(notice.acquire_singleton(0,sys.argv[2]),flush=True);time.sleep(30)",
+         str(Path(__file__).resolve().parent), name],
+        stdout=subprocess.PIPE, text=True)
+    try:
+        check("另一個進程先拿到", holder.stdout.readline().strip(), "True")
+        check_that("別人拿著時，後到的等一下就放棄", not hud.acquire_singleton(300, name))
+    finally:
+        holder.kill()
+        holder.wait()
+    check_that("拿著的進程結束（含當掉）後，後到的接得手", hud.acquire_singleton(2000, name))
+
+
 def main() -> int:
     hud._LANG["v"] = "zh"      # 斷言寫的是中文，先釘住語言
     # 這是 headless 測試：ensure_overlay() 平常會真的開一個提示層視窗，測試裡每呼叫一次就多開一個
@@ -151,6 +173,7 @@ def main() -> int:
         test_no_buttons()
         test_latch()
         test_colors()
+        test_singleton()
     finally:
         for d in (hud.SESSIONS, hud.ABORT_DIR):
             shutil.rmtree(d, ignore_errors=True)

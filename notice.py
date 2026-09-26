@@ -729,7 +729,39 @@ def toplevel_hwnd(root) -> int:
 # ---------------------------------------------------------------- overlay 本體
 
 
+_SINGLETON: list = []    # 抓著 mutex handle 直到進程結束，別讓它被回收
+
+
+def acquire_singleton(wait_ms: int = 1500,
+                      name: str = "Local\\ClaudeAutomationNotice.overlay") -> bool:
+    """同一時間只准一個 overlay。
+
+    hook 判斷「overlay 沒活著」到新 overlay 寫出第一個心跳之間有 0.3～0.8 秒空窗，
+    這段時間內其他工具呼叫（平行呼叫、別的 session）也會各自啟動一個，結果好幾個
+    一模一樣的面板疊在一起（2026-09-26 實測同時 4 個觸發 → 4 個 overlay）。
+    具名 mutex 由 Windows 保證唯一；持有的進程結束（包括當掉）會自動釋放。
+    後到的先等一下：舊的若正好在收尾，等它結束就接手；舊的還活著就退出。
+    """
+    k32 = ctypes.WinDLL("kernel32", use_last_error=True)
+    k32.CreateMutexW.restype = ctypes.c_void_p
+    k32.CreateMutexW.argtypes = [ctypes.c_void_p, ctypes.c_bool, ctypes.c_wchar_p]
+    k32.WaitForSingleObject.argtypes = [ctypes.c_void_p, ctypes.c_uint32]
+    k32.CloseHandle.argtypes = [ctypes.c_void_p]
+    h = k32.CreateMutexW(None, False, name)
+    if not h:
+        return True                      # 建不了 mutex 就退回舊行為，至少還會亮
+    r = k32.WaitForSingleObject(h, wait_ms)
+    if r in (0x0, 0x80):                 # WAIT_OBJECT_0／WAIT_ABANDONED 都代表拿到了
+        _SINGLETON.append(h)
+        return True
+    k32.CloseHandle(h)
+    return False
+
+
 def run_overlay() -> None:
+    if not acquire_singleton():
+        trace("early-exit: 已經有另一個 overlay 在跑")
+        return
     try:
         ctypes.windll.shcore.SetProcessDpiAwareness(2)
     except Exception:

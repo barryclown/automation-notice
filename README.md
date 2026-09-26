@@ -197,6 +197,11 @@ Drop an empty file named `DEBUG` in that folder and the overlay writes its start
   `state.json`, and on Windows `os.replace` fails while the target is being read, leaving
   orphaned temp files. One file per session almost removes the contention; the retry and
   `sweep_stale_tmp()` stay (it needs `rglob` to reach subdirectories).
+- **Only one overlay at a time.** Between a hook deciding "nothing is running" and the new overlay
+  writing its first heartbeat there is a 0.3-0.8 s gap. Parallel tool calls or other sessions in that
+  window each started their own copy, stacking identical panels (4 simultaneous triggers gave 4 overlays).
+  The overlay now takes a named mutex at startup, waits up to 1.5 s (taking over if the old one is
+  shutting down), and exits if it still can't get it.
 - **Use `CREATE_BREAKAWAY_FROM_JOB` for the long-lived process**, not WMI. The agent's shell
   lives in a KILL_ON_JOB_CLOSE job, so an ordinary child dies with that one tool call; WMI
   created processes die silently on some machines without reaching the first line of notice.py

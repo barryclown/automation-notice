@@ -8,7 +8,7 @@
     {
       "name": "automation-notice",
       "source": "./",
-      "description": "See what Claude Code is doing on your machine, and stop it with one click. / 看得見 AI 在你電腦上做什麼，也停得掉。"
+      "description": "See what Claude Code is doing on your machine, and stop it with Ctrl+Alt+Q. / 看得見 AI 在你電腦上做什麼，按 Ctrl+Alt+Q 就停得掉。"
     }
   ],
   "description": "Claude Code plugins by barryclown: make what the agent does on your machine visible and stoppable. / barryclown 的 Claude Code 外掛：讓 AI 在你電腦上做的每一步都看得見、停得掉。"

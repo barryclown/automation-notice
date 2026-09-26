@@ -371,7 +371,6 @@ STRINGS = {
         "deny": ("使用者在 {when} {how}主動收回鍵盤與電腦控制權（當時正在：{detail}）。"
                  "在他自己開口之前，不要再嘗試任何會借走他鍵鼠的操作；請直接停手並回報進度。"),
         "how_hotkey": "按了 Ctrl+Alt+Q ",
-        "how_button": "按了提示層上的停止鈕 ",
         "cli_lit": "提示層已亮起",
         "cli_lit_fail": "提示層啟動失敗（狀態已寫入）",
         "cli_updated": "提示層已更新：{detail}",
@@ -433,7 +432,6 @@ STRINGS = {
                  "their keyboard, mouse or browser again until they speak up. "
                  "Stop now and report where you got to."),
         "how_hotkey": "pressed Ctrl+Alt+Q",
-        "how_button": "clicked the stop button on the overlay",
         "cli_lit": "Overlay is up",
         "cli_lit_fail": "Overlay failed to start (state written)",
         "cli_updated": "Overlay updated: {detail}",
